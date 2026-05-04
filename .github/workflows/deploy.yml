@@ -29,6 +29,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate repository deployment settings
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=0
+
+          if [ -z "${{ vars.AZURE_CLIENT_ID }}" ]; then
+            echo "::error::Missing repository variable AZURE_CLIENT_ID."
+            missing=1
+          fi
+
+          if [ -z "${{ vars.AZURE_TENANT_ID }}" ]; then
+            echo "::error::Missing repository variable AZURE_TENANT_ID."
+            missing=1
+          fi
+
+          if [ -z "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]; then
+            echo "::error::Missing repository variable AZURE_SUBSCRIPTION_ID."
+            missing=1
+          fi
+
+          if [ -z "${{ vars.AZURE_RESOURCE_GROUP }}" ]; then
+            echo "::error::Missing repository variable AZURE_RESOURCE_GROUP."
+            missing=1
+          fi
+
+          if [ -z "${{ vars.AZURE_LOCATION }}" ]; then
+            echo "::error::Missing repository variable AZURE_LOCATION."
+            missing=1
+          fi
+
+          if [ -z "${{ vars.SQL_ADMIN_USER }}" ]; then
+            echo "::error::Missing repository variable SQL_ADMIN_USER."
+            missing=1
+          fi
+
+          if [ -z "${{ secrets.SQL_ADMIN_PASSWORD }}" ]; then
+            echo "::error::Missing repository secret SQL_ADMIN_PASSWORD."
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Log in to Azure with OIDC
         uses: azure/login@v2
         with:
