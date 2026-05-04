@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy
+pyodbc
+qrcode[pil]
