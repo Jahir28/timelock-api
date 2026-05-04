@@ -14,6 +14,38 @@ This project is designed for an Azure demo using Bicep, Azure SQL Database, Azur
 | Infrastructure as Code | Bicep |
 | API demo | Swagger/OpenAPI |
 
+### Azure resource topology
+
+```mermaid
+flowchart TB
+    user["User or QR scanner"] --> app["Azure App Service for Containers<br/>TimeLock API"]
+    app --> sql["Azure SQL Database<br/>timelockdb"]
+    app -. "AcrPull via managed identity" .-> acr["Azure Container Registry<br/>timelock-api image"]
+    bicep["Bicep template<br/>infra/main.bicep"] --> acr
+    bicep --> sqlServer["Azure SQL Server"]
+    sqlServer --> sql
+    bicep --> plan["Linux App Service Plan<br/>Basic B1"]
+    plan --> app
+    bicep --> identity["System-assigned managed identity"]
+    identity --> app
+```
+
+### GitHub deployment flow
+
+```mermaid
+flowchart LR
+    dev["Push to main<br/>or manual workflow run"] --> actions["GitHub Actions<br/>deploy.yml"]
+    actions --> oidc["Azure OIDC login<br/>no stored Azure password"]
+    oidc --> deploy["Bicep deployment<br/>resource group scope"]
+    deploy --> acr["Azure Container Registry"]
+    deploy --> webapp["App Service"]
+    deploy --> db["Azure SQL Database"]
+    actions --> image["Docker build"]
+    image --> acr
+    actions --> restart["Restart App Service"]
+    restart --> swagger["Swagger UI<br/>/docs"]
+```
+
 ## API endpoints
 
 | Method | Path | Purpose |
@@ -26,6 +58,8 @@ This project is designed for an Azure demo using Bicep, Azure SQL Database, Azur
 | DELETE | `/capsules/{id}` | Soft-delete one capsule |
 | GET | `/capsules/{id}/qr` | Return a PNG QR code for the public open URL |
 | GET | `/open/{publicCode}` | Public locked/unlocked capsule view |
+
+The repository includes [openapi.yaml](./openapi.yaml), so you can paste the full OpenAPI specification directly into Swagger Editor.
 
 ## Data model
 
@@ -88,6 +122,29 @@ docker run --rm -p 8000:8000 timelock-api:latest
 ```
 
 ## Deploy to Azure with Bicep
+
+The repository includes a GitHub Actions workflow at [.github/workflows/deploy.yml](./.github/workflows/deploy.yml). It deploys the Bicep template, builds the Docker image, pushes it to Azure Container Registry, restarts App Service, and verifies `/health`.
+
+Required GitHub repository variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `AZURE_CLIENT_ID` | Azure application/client ID used for OIDC login |
+| `AZURE_TENANT_ID` | Azure tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
+| `AZURE_RESOURCE_GROUP` | Target resource group |
+| `AZURE_LOCATION` | Azure region, for example `eastus` |
+| `SQL_ADMIN_USER` | Azure SQL administrator username |
+
+Required GitHub repository secret:
+
+| Secret | Purpose |
+| --- | --- |
+| `SQL_ADMIN_PASSWORD` | Azure SQL administrator password |
+
+The workflow runs automatically on pushes to `main` that change the API, Dockerfile, infrastructure, or workflow. It can also be started manually from the GitHub Actions tab.
+
+## Manual Azure deployment
 
 Create a resource group:
 

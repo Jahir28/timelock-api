@@ -1,0 +1,124 @@
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy.yml"
+      - "Dockerfile"
+      - "infra/**"
+      - "src/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DEPLOYMENT_NAME: timelock-infra
+  DOCKER_IMAGE_NAME: timelock-api
+  DOCKER_IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Deploy infrastructure and app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Bicep
+        run: az bicep install
+
+      - name: Deploy Azure infrastructure
+        id: infra
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          outputs=$(az deployment group create \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/main.bicep \
+            --parameters \
+              location="${{ vars.AZURE_LOCATION }}" \
+              sqlAdminUser="${{ vars.SQL_ADMIN_USER }}" \
+              sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+              dockerImageName="$DOCKER_IMAGE_NAME" \
+              dockerImageTag="$DOCKER_IMAGE_TAG" \
+            --query properties.outputs \
+            -o json)
+
+          acr_name=$(echo "$outputs" | jq -r '.acrName.value')
+          acr_login_server=$(echo "$outputs" | jq -r '.acrLoginServer.value')
+          app_name=$(echo "$outputs" | jq -r '.appName.value')
+          app_url=$(echo "$outputs" | jq -r '.appUrl.value')
+
+          {
+            echo "acr_name=$acr_name"
+            echo "acr_login_server=$acr_login_server"
+            echo "app_name=$app_name"
+            echo "app_url=$app_url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push container image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          az acr login --name "${{ steps.infra.outputs.acr_name }}"
+
+          image="${{ steps.infra.outputs.acr_login_server }}/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG"
+          latest="${{ steps.infra.outputs.acr_login_server }}/$DOCKER_IMAGE_NAME:latest"
+
+          docker build -t "$image" -t "$latest" .
+          docker push "$image"
+          docker push "$latest"
+
+      - name: Restart App Service
+        run: |
+          az webapp restart \
+            --name "${{ steps.infra.outputs.app_name }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}"
+
+      - name: Verify deployed health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          app_url="${{ steps.infra.outputs.app_url }}"
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$app_url/health"; then
+              echo
+              echo "Health check succeeded."
+              exit 0
+            fi
+
+            echo "Waiting for the app to become healthy... attempt $attempt/30"
+            sleep 10
+          done
+
+          echo "The app did not become healthy in time."
+          exit 1
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## TimeLock API deployment"
+            echo
+            echo "- App URL: ${{ steps.infra.outputs.app_url }}"
+            echo "- Swagger: ${{ steps.infra.outputs.app_url }}/docs"
+            echo "- ACR: ${{ steps.infra.outputs.acr_login_server }}"
+            echo "- App Service: ${{ steps.infra.outputs.app_name }}"
+            echo "- Image tag: $DOCKER_IMAGE_TAG"
+          } >> "$GITHUB_STEP_SUMMARY"
