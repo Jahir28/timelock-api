@@ -2,7 +2,7 @@
 
 TimeLock API is a containerized FastAPI project for digital time capsules. A user creates a capsule with a title, content, and UTC unlock date. The API returns a public open link and a QR endpoint. Before the unlock date, the public link says the capsule is locked. After the unlock date, it reveals the message.
 
-This project is designed for an Azure demo using Bicep, Azure SQL Database, Azure Container Registry, and App Service for Containers.
+The repository includes Azure infrastructure as code with Bicep, a Dockerized API, GitHub Actions deployment, and an OpenAPI specification that can be imported into Swagger tools.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ This project is designed for an Azure demo using Bicep, Azure SQL Database, Azur
 | Container image | Azure Container Registry |
 | Backend hosting | App Service for Containers |
 | Infrastructure as Code | Bicep |
-| API demo | Swagger/OpenAPI |
+| API documentation | Swagger/OpenAPI |
 
 ### Azure resource topology
 
@@ -77,9 +77,9 @@ CREATE TABLE Capsules (
 );
 ```
 
-## Local development in WSL
+## Local development
 
-Create a virtual environment and run the API:
+Create a virtual environment and run the API on Linux, macOS, or WSL:
 
 ```bash
 python3 -m venv .venv
@@ -100,8 +100,8 @@ Create a locked capsule:
 curl -X POST http://127.0.0.1:8000/capsules \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Message for the end of semester",
-    "content": "If you are reading this, you survived UTP.",
+    "title": "Message for my future self",
+    "content": "If you are reading this, keep building.",
     "unlockAt": "2026-05-10T00:00:00Z"
   }'
 ```
@@ -150,7 +150,7 @@ Create a resource group:
 
 ```bash
 az group create \
-  --name rg-timelock-demo \
+  --name rg-timelock-api \
   --location eastus
 ```
 
@@ -161,7 +161,7 @@ DEPLOYMENT_NAME=timelock-infra
 
 az deployment group create \
   --name "$DEPLOYMENT_NAME" \
-  --resource-group rg-timelock-demo \
+  --resource-group rg-timelock-api \
   --template-file infra/main.bicep \
   --parameters sqlAdminPassword='Use-A-Strong-Password-123!'
 ```
@@ -170,19 +170,19 @@ Capture the deployment outputs:
 
 ```bash
 ACR_NAME=$(az deployment group show \
-  --resource-group rg-timelock-demo \
+  --resource-group rg-timelock-api \
   --name "$DEPLOYMENT_NAME" \
   --query properties.outputs.acrName.value \
   -o tsv)
 
 ACR_LOGIN_SERVER=$(az deployment group show \
-  --resource-group rg-timelock-demo \
+  --resource-group rg-timelock-api \
   --name "$DEPLOYMENT_NAME" \
   --query properties.outputs.acrLoginServer.value \
   -o tsv)
 
 APP_NAME=$(az deployment group show \
-  --resource-group rg-timelock-demo \
+  --resource-group rg-timelock-api \
   --name "$DEPLOYMENT_NAME" \
   --query properties.outputs.appName.value \
   -o tsv)
@@ -202,14 +202,14 @@ Restart App Service after the first image push:
 ```bash
 az webapp restart \
   --name "$APP_NAME" \
-  --resource-group rg-timelock-demo
+  --resource-group rg-timelock-api
 ```
 
 Open Swagger:
 
 ```bash
 APP_URL=$(az deployment group show \
-  --resource-group rg-timelock-demo \
+  --resource-group rg-timelock-api \
   --name "$DEPLOYMENT_NAME" \
   --query properties.outputs.appUrl.value \
   -o tsv)
@@ -217,9 +217,9 @@ APP_URL=$(az deployment group show \
 echo "$APP_URL/docs"
 ```
 
-## Classroom demo flow
+## Quick verification flow
 
-1. Show `infra/main.bicep`.
+1. Review `infra/main.bicep`.
 2. Deploy the resource group infrastructure.
 3. Build and push the Docker image to ACR.
 4. Open Swagger at `/docs`.
