@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TimeLock</title>
+  <meta name="description" content="Crea y abre capsulas del tiempo digitales.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --surface: #11182b;
+      --surface-2: #17213a;
+      --line: rgba(148, 163, 184, 0.22);
+      --text: #edf2ff;
+      --muted: #aab7d4;
+      --muted-2: #7f8dae;
+      --primary: #8b5cf6;
+      --primary-2: #38bdf8;
+      --danger: #fb7185;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 34rem),
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.14), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    a { color: inherit; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--line);
+      background: rgba(11, 16, 32, 0.88);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 68px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid rgba(139, 92, 246, 0.5);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.26), rgba(56, 189, 248, 0.16));
+      color: #d9e6ff;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .nav-link {
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.94rem;
+      font-weight: 600;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible {
+      border-color: var(--line);
+      color: var(--text);
+      outline: none;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+      gap: 42px;
+      align-items: center;
+      padding: 76px 0 56px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      border: 1px solid rgba(56, 189, 248, 0.34);
+      border-radius: 999px;
+      padding: 7px 11px;
+      color: #bfeeff;
+      background: rgba(56, 189, 248, 0.08);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 18px;
+      font-size: clamp(3rem, 8vw, 6.2rem);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      font-size: clamp(1.7rem, 3vw, 2.35rem);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 1.08rem;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      margin-bottom: 28px;
+      max-width: 640px;
+      color: var(--muted);
+      font-size: 1.1rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      background: var(--surface-2);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .button.primary {
+      background: linear-gradient(135deg, var(--primary), #2563eb);
+      box-shadow: 0 16px 35px rgba(79, 70, 229, 0.28);
+    }
+
+    .button.secondary {
+      border-color: var(--line);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .button.danger {
+      border-color: rgba(251, 113, 133, 0.38);
+      color: #ffd5dc;
+      background: rgba(251, 113, 133, 0.1);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+      transform: none;
+    }
+
+    .hero-panel,
+    .panel,
+    .result,
+    .capsule-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 24, 43, 0.78);
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.18);
+    }
+
+    .hero-panel {
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 15px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .timeline li {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      gap: 13px;
+      align-items: start;
+    }
+
+    .step-icon {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(139, 92, 246, 0.36);
+      background: rgba(139, 92, 246, 0.12);
+      color: #d7c8ff;
+      font-weight: 800;
+    }
+
+    .timeline p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    section {
+      padding: 36px 0;
+      scroll-margin-top: 86px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .section-head p {
+      max-width: 680px;
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.86fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel,
+    .result {
+      padding: 22px;
+    }
+
+    .form {
+      display: grid;
+      gap: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    label {
+      color: #dfe7fb;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 13px;
+      outline: none;
+      background: rgba(7, 12, 25, 0.72);
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 138px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: rgba(56, 189, 248, 0.72);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted-2);
+      font-size: 0.86rem;
+    }
+
+    .notice {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 13px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .notice.show { display: block; }
+
+    .notice.error {
+      border-color: rgba(251, 113, 133, 0.42);
+      color: #ffd7df;
+      background: rgba(251, 113, 133, 0.1);
+    }
+
+    .notice.success {
+      border-color: rgba(52, 211, 153, 0.42);
+      color: #d4fff1;
+      background: rgba(52, 211, 153, 0.08);
+    }
+
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .is-loading .spinner { display: inline-block; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .result {
+      display: grid;
+      gap: 14px;
+      min-height: 168px;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 140px;
+      border: 1px dashed rgba(148, 163, 184, 0.28);
+      border-radius: var(--radius);
+      color: var(--muted-2);
+      text-align: center;
+      padding: 22px;
+    }
+
+    .data-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: 124px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      padding-bottom: 9px;
+    }
+
+    .data-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .data-row dt {
+      color: var(--muted-2);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .data-row dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: var(--text);
+    }
+
+    .code {
+      display: inline-flex;
+      border: 1px solid rgba(139, 92, 246, 0.42);
+      border-radius: var(--radius);
+      padding: 5px 8px;
+      background: rgba(139, 92, 246, 0.12);
+      color: #e4d9ff;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .qr-box {
+      display: grid;
+      place-items: center;
+      width: fit-content;
+      border-radius: var(--radius);
+      padding: 10px;
+      background: #fff;
+    }
+
+    .qr-box img {
+      display: block;
+      width: 164px;
+      height: 164px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .status-pill.locked {
+      border: 1px solid rgba(251, 191, 36, 0.34);
+      color: #ffe9ad;
+      background: rgba(251, 191, 36, 0.1);
+    }
+
+    .status-pill.unlocked {
+      border: 1px solid rgba(52, 211, 153, 0.34);
+      color: #cffff0;
+      background: rgba(52, 211, 153, 0.1);
+    }
+
+    .capsules-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .capsules-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .capsule-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .capsule-card p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .capsule-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      margin-top: 34px;
+      padding: 24px 0 34px;
+      color: var(--muted-2);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 820px) {
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px 0;
+      }
+
+      .nav-links { justify-content: flex-start; }
+      .hero, .grid { grid-template-columns: 1fr; }
+      .hero { padding-top: 44px; }
+
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .capsules-toolbar { justify-content: flex-start; }
+      .capsule-card { grid-template-columns: 1fr; }
+
+      .data-row {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 22px, 1120px); }
+
+      .nav-link {
+        padding: 8px 9px;
+        font-size: 0.88rem;
+      }
+
+      .hero-panel,
+      .panel,
+      .result {
+        padding: 16px;
+      }
+
+      .button,
+      .actions {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="shell nav" aria-label="Navegacion principal">
+      <a class="brand" href="#inicio" aria-label="Ir al inicio de TimeLock">
+        <span class="brand-mark" aria-hidden="true">T</span>
+        <span>TimeLock</span>
+      </a>
+      <div class="nav-links">
+        <a class="nav-link" href="#crear">Crear</a>
+        <a class="nav-link" href="#abrir">Abrir</a>
+        <a class="nav-link" href="#capsulas">Mis capsulas</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section id="inicio" class="shell hero" aria-labelledby="hero-title">
+      <div>
+        <span class="eyebrow">Capsulas digitales con apertura programada</span>
+        <h1 id="hero-title">TimeLock</h1>
+        <p class="hero-copy">
+          Guarda un mensaje, define una fecha futura y comparte un enlace publico o un QR.
+          El contenido se mantiene bloqueado hasta que llegue el momento.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="#crear">Crear capsula</a>
+          <a class="button secondary" href="#abrir">Abrir por codigo</a>
+        </div>
+      </div>
+      <aside class="hero-panel" aria-label="Como funciona">
+        <ol class="timeline">
+          <li>
+            <span class="step-icon">1</span>
+            <div>
+              <h3>Escribe el mensaje</h3>
+              <p>Agrega titulo, contenido y fecha de apertura en tu zona horaria.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-icon">2</span>
+            <div>
+              <h3>Comparte el acceso</h3>
+              <p>TimeLock genera un codigo publico, un enlace y un QR.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-icon">3</span>
+            <div>
+              <h3>Espera la fecha</h3>
+              <p>Antes de tiempo se muestra bloqueada; despues revela el contenido.</p>
+            </div>
+          </li>
+        </ol>
+      </aside>
+    </section>
+
+    <section id="crear" class="shell" aria-labelledby="create-title">
+      <div class="section-head">
+        <div>
+          <h2 id="create-title">Crear capsula</h2>
+          <p>La fecha se convierte automaticamente a UTC antes de enviarse al backend.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <form id="create-form" class="panel form">
+          <div id="create-notice" class="notice" role="status" aria-live="polite"></div>
+          <div class="field">
+            <label for="title">Titulo</label>
+            <input id="title" name="title" type="text" maxlength="120" required placeholder="Mensaje para mi yo del futuro">
+          </div>
+          <div class="field">
+            <label for="content">Contenido</label>
+            <textarea id="content" name="content" required placeholder="Escribe aqui el contenido de la capsula"></textarea>
+          </div>
+          <div class="field">
+            <label for="unlockAt">Fecha de apertura</label>
+            <input id="unlockAt" name="unlockAt" type="datetime-local" required>
+            <p class="hint">El navegador muestra la fecha local, pero la API recibe ISO 8601 UTC.</p>
+          </div>
+          <button id="create-button" class="button primary" type="submit">
+            <span class="spinner" aria-hidden="true"></span>
+            Crear capsula
+          </button>
+        </form>
+        <aside id="create-result" class="result" aria-live="polite">
+          <div class="empty">Cuando crees una capsula, aqui apareceran el codigo, enlace y QR.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="abrir" class="shell" aria-labelledby="open-title">
+      <div class="section-head">
+        <div>
+          <h2 id="open-title">Abrir capsula</h2>
+          <p>Ingresa el codigo publico para saber si la capsula esta bloqueada o lista para abrir.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <form id="open-form" class="panel form">
+          <div id="open-notice" class="notice" role="status" aria-live="polite"></div>
+          <div class="field">
+            <label for="publicCode">Codigo publico</label>
+            <input id="publicCode" name="publicCode" type="text" required placeholder="K7F9A2QX" autocomplete="off">
+          </div>
+          <button id="open-button" class="button primary" type="submit">
+            <span class="spinner" aria-hidden="true"></span>
+            Abrir
+          </button>
+        </form>
+        <aside id="open-result" class="result" aria-live="polite">
+          <div class="empty">El resultado de apertura aparecera aqui.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="capsulas" class="shell" aria-labelledby="capsules-title">
+      <div class="section-head">
+        <div>
+          <h2 id="capsules-title">Mis capsulas</h2>
+          <p>Lista las capsulas activas que devuelve el backend y calcula su estado segun la fecha de apertura.</p>
+        </div>
+        <div class="capsules-toolbar">
+          <button id="refresh-capsules" class="button secondary" type="button">
+            <span class="spinner" aria-hidden="true"></span>
+            Actualizar
+          </button>
+        </div>
+      </div>
+      <div id="capsules-notice" class="notice" role="status" aria-live="polite"></div>
+      <div id="capsules-list" class="capsules-list" aria-live="polite">
+        <div class="empty">Cargando capsulas...</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">TimeLock frontend conectado a la API desplegada en Azure.</div>
+  </footer>
+
+  <script>
+    const API_BASE_URL = "https://timelock-api-2026.azurewebsites.net";
+
+    const createForm = document.querySelector("#create-form");
+    const openForm = document.querySelector("#open-form");
+    const refreshButton = document.querySelector("#refresh-capsules");
+    const createResult = document.querySelector("#create-result");
+    const openResult = document.querySelector("#open-result");
+    const capsulesList = document.querySelector("#capsules-list");
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setMinimumDateTime();
+      loadCapsules();
+    });
+
+    createForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = document.querySelector("#create-button");
+      setNotice("create-notice", "");
+      setLoading(submitButton, true);
+
+      try {
+        const formData = new FormData(createForm);
+        const unlockAt = toUtcIso(formData.get("unlockAt"));
+
+        const capsule = await apiRequest("/capsules", {
+          method: "POST",
+          body: JSON.stringify({
+            title: String(formData.get("title")).trim(),
+            content: String(formData.get("content")).trim(),
+            unlockAt
+          })
+        });
+
+        renderCreatedCapsule(capsule);
+        setNotice("create-notice", "Capsula creada correctamente.", "success");
+        createForm.reset();
+        setMinimumDateTime();
+        await loadCapsules();
+      } catch (error) {
+        setNotice("create-notice", error.message, "error");
+      } finally {
+        setLoading(submitButton, false);
+      }
+    });
+
+    openForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = document.querySelector("#open-button");
+      const code = document.querySelector("#publicCode").value.trim().toUpperCase();
+      setNotice("open-notice", "");
+      setLoading(submitButton, true);
+
+      try {
+        const capsule = await apiRequest(`/open/${encodeURIComponent(code)}`);
+        renderOpenResult(capsule);
+      } catch (error) {
+        setNotice("open-notice", error.message, "error");
+      } finally {
+        setLoading(submitButton, false);
+      }
+    });
+
+    refreshButton.addEventListener("click", () => {
+      loadCapsules();
+    });
+
+    async function loadCapsules() {
+      setNotice("capsules-notice", "");
+      setLoading(refreshButton, true);
+      capsulesList.innerHTML = '<div class="empty">Cargando capsulas...</div>';
+
+      try {
+        const capsules = await apiRequest("/capsules");
+        renderCapsules(capsules);
+      } catch (error) {
+        capsulesList.innerHTML = '<div class="empty">No se pudieron cargar las capsulas.</div>';
+        setNotice("capsules-notice", error.message, "error");
+      } finally {
+        setLoading(refreshButton, false);
+      }
+    }
+
+    async function deleteCapsule(id) {
+      const confirmed = window.confirm("Quieres eliminar esta capsula?");
+      if (!confirmed) return;
+
+      try {
+        await apiRequest(`/capsules/${id}`, { method: "DELETE" });
+        setNotice("capsules-notice", "Capsula eliminada.", "success");
+        await loadCapsules();
+      } catch (error) {
+        setNotice("capsules-notice", error.message, "error");
+      }
+    }
+
+    async function apiRequest(path, options = {}) {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        headers: {
+          "Accept": "application/json",
+          ...(options.body ? { "Content-Type": "application/json" } : {})
+        },
+        ...options
+      });
+
+      if (response.status === 204) return null;
+
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json") ? await response.json() : await response.text();
+
+      if (!response.ok) {
+        throw new Error(extractErrorMessage(payload, response.status));
+      }
+
+      return payload;
+    }
+
+    function extractErrorMessage(payload, status) {
+      if (payload && Array.isArray(payload.detail)) {
+        return payload.detail.map((item) => item.msg).join(". ");
+      }
+      if (payload && typeof payload.detail === "string") return payload.detail;
+      if (typeof payload === "string" && payload.trim()) return payload;
+      return `El backend respondio con error ${status}.`;
+    }
+
+    function toUtcIso(localDateTimeValue) {
+      if (!localDateTimeValue) throw new Error("Selecciona una fecha de apertura.");
+      const date = new Date(localDateTimeValue);
+      if (Number.isNaN(date.getTime())) throw new Error("La fecha de apertura no es valida.");
+      return date.toISOString();
+    }
+
+    function setMinimumDateTime() {
+      const input = document.querySelector("#unlockAt");
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 1);
+      input.min = toDatetimeLocalValue(now);
+    }
+
+    function toDatetimeLocalValue(date) {
+      const offsetMs = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    }
+
+    function renderCreatedCapsule(capsule) {
+      const qrImage = qrServerUrl(capsule.openUrl);
+      createResult.innerHTML = `
+        <h3>Capsula creada</h3>
+        <dl class="data-list">
+          <div class="data-row">
+            <dt>Codigo</dt>
+            <dd><span class="code">${escapeHtml(capsule.publicCode)}</span></dd>
+          </div>
+          <div class="data-row">
+            <dt>Enlace</dt>
+            <dd><a href="${escapeAttribute(capsule.openUrl)}" target="_blank" rel="noopener">${escapeHtml(capsule.openUrl)}</a></dd>
+          </div>
+          <div class="data-row">
+            <dt>QR</dt>
+            <dd>
+              <div class="qr-box">
+                <img src="${escapeAttribute(qrImage)}" alt="QR para abrir la capsula ${escapeAttribute(capsule.publicCode)}">
+              </div>
+            </dd>
+          </div>
+        </dl>
+      `;
+    }
+
+    function renderOpenResult(capsule) {
+      if (capsule.status === "locked") {
+        openResult.innerHTML = `
+          <span class="status-pill locked">Bloqueada</span>
+          <h3>Esta capsula todavia no puede abrirse</h3>
+          <p>${escapeHtml(capsule.message || "La fecha de apertura aun no ha llegado.")}</p>
+          <dl class="data-list">
+            <div class="data-row">
+              <dt>Apertura</dt>
+              <dd>${formatDate(capsule.unlockAt)}</dd>
+            </div>
+          </dl>
+        `;
+        return;
+      }
+
+      openResult.innerHTML = `
+        <span class="status-pill unlocked">Abierta</span>
+        <h3>${escapeHtml(capsule.title)}</h3>
+        <p>${escapeHtml(capsule.content)}</p>
+        <dl class="data-list">
+          <div class="data-row">
+            <dt>Codigo</dt>
+            <dd><span class="code">${escapeHtml(capsule.publicCode)}</span></dd>
+          </div>
+        </dl>
+      `;
+    }
+
+    function renderCapsules(capsules) {
+      if (!Array.isArray(capsules) || capsules.length === 0) {
+        capsulesList.innerHTML = '<div class="empty">Todavia no hay capsulas activas.</div>';
+        return;
+      }
+
+      capsulesList.innerHTML = capsules.map((capsule) => {
+        const unlocked = isUnlocked(capsule.unlockAt);
+        const statusClass = unlocked ? "unlocked" : "locked";
+        const statusText = unlocked ? "Abierta" : "Bloqueada";
+
+        return `
+          <article class="capsule-card">
+            <div>
+              <h3>${escapeHtml(capsule.title)}</h3>
+              <p>${escapeHtml(truncate(capsule.content, 150))}</p>
+              <div class="capsule-meta">
+                <span class="status-pill ${statusClass}">${statusText}</span>
+                <span class="tag">Apertura: ${formatDate(capsule.unlockAt)}</span>
+                <span class="tag">Codigo: ${escapeHtml(capsule.publicCode)}</span>
+              </div>
+            </div>
+            <div class="actions">
+              <a class="button secondary" href="${escapeAttribute(`${API_BASE_URL}/open/${capsule.publicCode}`)}" target="_blank" rel="noopener">Ver</a>
+              <button class="button danger" type="button" data-delete-id="${capsule.id}">Eliminar</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      capsulesList.querySelectorAll("[data-delete-id]").forEach((button) => {
+        button.addEventListener("click", () => deleteCapsule(button.dataset.deleteId));
+      });
+    }
+
+    function isUnlocked(value) {
+      return new Date(value).getTime() <= Date.now();
+    }
+
+    function formatDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+      return new Intl.DateTimeFormat("es", {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(date);
+    }
+
+    function qrServerUrl(openUrl) {
+      const params = new URLSearchParams({
+        size: "220x220",
+        data: openUrl
+      });
+      return `https://api.qrserver.com/v1/create-qr-code/?${params.toString()}`;
+    }
+
+    function truncate(value, maxLength) {
+      if (!value || value.length <= maxLength) return value || "";
+      return `${value.slice(0, maxLength - 1)}...`;
+    }
+
+    function setLoading(button, isLoading) {
+      if (!button) return;
+      button.disabled = isLoading;
+      button.classList.toggle("is-loading", isLoading);
+    }
+
+    function setNotice(id, message, type = "") {
+      const element = document.getElementById(id);
+      element.textContent = message;
+      element.className = `notice${message ? " show" : ""}${type ? ` ${type}` : ""}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+  </script>
+</body>
+</html>
