@@ -1,33 +1,57 @@
-# TimeLock API
+# TimeLock
 
 TimeLock API is a containerized FastAPI project for digital time capsules. A user creates a capsule with a title, content, and UTC unlock date. The API returns a public open link and a QR endpoint. Before the unlock date, the public link says the capsule is locked. After the unlock date, it reveals the message.
 
-The repository includes Azure infrastructure as code with Bicep, a Dockerized API, GitHub Actions deployment, and an OpenAPI specification that can be imported into Swagger tools.
+The repository includes the FastAPI backend, a separate static frontend, Azure infrastructure as code with Bicep, Docker support, GitHub Actions deployment, and an OpenAPI specification that can be imported into Swagger tools.
+
+## Repository structure
+
+```txt
+.
+├── Dockerfile              # Backend container image
+├── src/                    # FastAPI application
+├── infra/                  # Azure Bicep infrastructure
+├── openapi.yaml            # API specification
+└── frontend/               # Static frontend served by Nginx
+    ├── index.html
+    ├── Dockerfile
+    ├── nginx.conf
+    └── .dockerignore
+```
 
 ## Architecture
 
 | Layer | Azure service |
 | --- | --- |
 | Database | Azure SQL Database |
-| Container image | Azure Container Registry |
+| Container images | Azure Container Registry |
 | Backend hosting | App Service for Containers |
+| Frontend hosting | App Service for Containers |
 | Infrastructure as Code | Bicep |
 | API documentation | Swagger/OpenAPI |
+| Frontend UI | HTML, CSS, JavaScript, Nginx |
 
 ### Azure resource topology
 
 ```mermaid
 flowchart TB
-    user["User or QR scanner"] --> app["Azure App Service for Containers<br/>TimeLock API"]
+    user["User"] --> frontend["Azure App Service for Containers<br/>TimeLock frontend"]
+    qrUser["QR scanner"] --> app["Azure App Service for Containers<br/>TimeLock API"]
+    frontend --> app
     app --> sql["Azure SQL Database<br/>timelockdb"]
-    app -. "AcrPull via managed identity" .-> acr["Azure Container Registry<br/>timelock-api image"]
+    frontend -. "AcrPull via managed identity" .-> acr["Azure Container Registry<br/>frontend image"]
+    app -. "AcrPull via managed identity" .-> acr["Azure Container Registry<br/>backend image"]
     bicep["Bicep template<br/>infra/main.bicep"] --> acr
     bicep --> sqlServer["Azure SQL Server"]
     sqlServer --> sql
     bicep --> plan["Linux App Service Plan<br/>Basic B1"]
     plan --> app
+    cli["Azure CLI manual setup<br/>frontend App Service"] --> frontend
+    plan --> frontend
     bicep --> identity["System-assigned managed identity"]
     identity --> app
+    cli --> frontendIdentity["Frontend managed identity<br/>AcrPull"]
+    frontendIdentity --> frontend
 ```
 
 ### GitHub deployment flow
@@ -114,16 +138,32 @@ curl http://127.0.0.1:8000/open/K7F9A2QX
 
 ## Docker
 
-Build and run the container locally:
+Build and run the backend container locally:
 
 ```bash
 docker build -t timelock-api:latest .
 docker run --rm -p 8000:8000 timelock-api:latest
 ```
 
+Build and run the frontend container locally:
+
+```bash
+cd frontend
+docker build -t timelock-frontend:latest .
+docker run --rm -p 3000:80 timelock-frontend:latest
+```
+
+The frontend calls the backend directly from the browser. The backend URL is configured in `frontend/index.html`:
+
+```js
+const API_BASE_URL = "https://timelock-api-2026.azurewebsites.net";
+```
+
 ## Deploy to Azure with Bicep
 
-The repository includes a GitHub Actions workflow at [.github/workflows/deploy.yml](./.github/workflows/deploy.yml). It deploys the Bicep template, builds the Docker image, pushes it to Azure Container Registry, restarts App Service, and verifies `/health`.
+The repository includes a GitHub Actions workflow at [.github/workflows/deploy.yml](./.github/workflows/deploy.yml). It deploys the backend infrastructure from the Bicep template, builds the backend Docker image, pushes it to Azure Container Registry, restarts the backend App Service, and verifies `/health`.
+
+The frontend is stored in `frontend/` and is deployed as a separate container image. It can be built and pushed to the same Azure Container Registry, then assigned to a separate frontend App Service.
 
 Required GitHub repository variables:
 
@@ -151,7 +191,7 @@ Create a resource group:
 ```bash
 az group create \
   --name rg-timelock-api \
-  --location eastus
+  --location eastus2
 ```
 
 Deploy the infrastructure:
@@ -197,6 +237,16 @@ docker tag timelock-api:latest "$ACR_LOGIN_SERVER/timelock-api:latest"
 docker push "$ACR_LOGIN_SERVER/timelock-api:latest"
 ```
 
+Build and push the frontend image:
+
+```bash
+cd frontend
+docker build -t timelock-frontend:latest .
+docker tag timelock-frontend:latest "$ACR_LOGIN_SERVER/timelock-frontend:latest"
+docker push "$ACR_LOGIN_SERVER/timelock-frontend:latest"
+cd ..
+```
+
 Restart App Service after the first image push:
 
 ```bash
@@ -204,6 +254,8 @@ az webapp restart \
   --name "$APP_NAME" \
   --resource-group rg-timelock-api
 ```
+
+If the frontend is deployed as a separate App Service, configure it to use the ACR image and port `80`. The App Service should use a system-assigned managed identity with the `AcrPull` role on the registry.
 
 Open Swagger:
 
@@ -221,13 +273,15 @@ echo "$APP_URL/docs"
 
 1. Review `infra/main.bicep`.
 2. Deploy the resource group infrastructure.
-3. Build and push the Docker image to ACR.
-4. Open Swagger at `/docs`.
-5. Create a capsule with a future unlock date.
-6. Copy the `openUrl` and show that it is locked.
-7. Create another capsule with a past unlock date.
-8. Open that capsule and show that it is unlocked.
-9. Open `/capsules/{id}/qr` and scan the QR code.
+3. Build and push the backend Docker image to ACR.
+4. Build and push the frontend Docker image to ACR.
+5. Open Swagger at `/docs`.
+6. Open the frontend App Service URL.
+7. Create a capsule with a future unlock date.
+8. Copy the `openUrl` or generated QR and show that it is locked.
+9. Create another capsule with a past unlock date.
+10. Open that capsule and show that it is unlocked.
+11. Open `/capsules/{id}/qr` and scan the QR code.
 
 ## Environment variables
 
@@ -244,3 +298,7 @@ echo "$APP_URL/docs"
 ## Notes
 
 The Bicep template disables ACR admin credentials and gives the App Service system-assigned managed identity the `AcrPull` role. This keeps container pull access inside Azure without storing registry passwords in application settings.
+
+The frontend is intentionally separated from the backend. This allows the backend and frontend to be built, tagged, pushed, and deployed as two independent container images in Azure Container Registry.
+
+This project was adjusted to work with an Azure for Students subscription by using low-cost Azure resources such as Basic-tier Azure SQL Database, Basic Azure Container Registry, and a Basic B1 Linux App Service Plan.
